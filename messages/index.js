@@ -2,13 +2,12 @@
 const builder = require("botbuilder");
 const botbuilder_azure = require("botbuilder-azure");
 const path = require('path');
-const request = require('request');
-const location = require('botbuilder-location');
+const request = require('superagent');
 require('dotenv').config();
 
 
 
-var useEmulator = true;//(process.env.NODE_ENV == 'development');
+var useEmulator = false;//(process.env.NODE_ENV == 'development');
 
 var connector = useEmulator ? new builder.ChatConnector() : new botbuilder_azure.BotServiceConnector({
     appId: process.env['MICROSOFT_APP_ID'],
@@ -18,14 +17,13 @@ var connector = useEmulator ? new builder.ChatConnector() : new botbuilder_azure
 });
 
 
-
-
 const bot = new builder.UniversalBot(connector, [
     (session, args) => {
         session.send('Hello I am Bubble Bot');
     }
 ]);
-bot.library(location.createLibrary(process.env.BING_MAPS_API_KEY));
+//whether to persist conversationdata
+//bot.set(`persistConversationData`, false);
 
 bot.dialog('qnadialog', require('./qnadialog.js')).triggerAction({
     matches : 'QnAIntent'
@@ -60,7 +58,8 @@ bot.dialog('hi', [
                     {
                         "type" : "TextBlock",
                         "text" : "You can choose one of the below options or ask me anything to get started!",
-                        "size" : "medium"
+                        "size" : "medium",
+                        "wrap" : true
                     }
                 ]
             }
@@ -71,12 +70,15 @@ bot.dialog('hi', [
     matches : 'hi'
 });
 
+
 bot.dialog('searchBubbleTea', [
     (session, args, next) => {
+        console.log("Starting conversationdata");
+        console.log(session.conversationData);
         if (!session.conversationData.address) {
             builder.Prompts.text(session, 'What is the street address?');
         } else {
-            next();
+            getLocationCoordinates(session.conversationData.address, session, retrieveRestaurantInfo);
         }
     },
     (session, results, next) => {
@@ -86,91 +88,156 @@ bot.dialog('searchBubbleTea', [
             session.conversationData.address = results.response.split(" ").join("+");
             builder.Prompts.text(session, 'What city are you in?');
         } else {
-            next();
+            session.endDialog('Ok Bye');
         }
-        //session.endConversation(`SO your loaction is ${results.response}`);
     },
     (session, results, next) => {
         console.log(session.conversationData);
         if (results.response) {
             console.log(results.response);
             session.conversationData.address += '+' + results.response.split(" ").join("+");
-            let url = `https://maps.googleapis.com/maps/api/geocode/json?address=${session.conversationData.address}&key=${process.env.GOOGLE_GEOCODING_API_KEY}`;
-            let options = {
-                url : url,
-                method : 'GET'
-            };
-            request(options, (err, res, body) => {
-                //console.log(res);
-                //console.log(body);
-                if (err) {
-                    console.log(err);
-                } else {
-                    let body = JSON.parse(body);
-                    if (body.results) {
-                        console.log('in body results');
-                        let latitude = body.results[0].geometry.location.lat;
-                        let longitude = body.results[0].geometry.location.lng;
-                        let restaurantInfo = retrieveRestaurantInfo(latitude, longitude);
-                        console.log(latitude + " " + longitude);
-                        let restaurantCard = createRestaurantAdaptiveCard(restaurantInfo);
-                        console.log(restaurantInfo);
-
-                        let message = new builder.Message(session).addAttachment(restaurantCard);
-                        session.send('Here is a good bubble tea shop around you');
-                        session.endDialog(message);
-                    } else {
-                        next();
-                    }
-
-                }
-            });
+            builder.Prompts.text(session, 'What state are you in?');
+        } else {
+            session.endDialog('OK Bye');
         }
 
+    },
+    (session, results, next) => {
+        if (results.response) {
+            session.conversationData.address += '+' + results.response.split(" ").join("+");
+            getLocationCoordinates(session.conversationData.address, session, retrieveRestaurantInfo);
+        } else {
+            session.endDialog('OK Bye');
+        }
     }
+
 ]).triggerAction({
     matches : 'search'
 });
 
 
-const createRestaurantAdaptiveCard = function(restaurantInfo) {
+
+const createRestaurantCarousel = function (card1, card2, card3) {
+
+}
+const sendRestaurantAdaptiveCard = (restaurantInfo, session) => {
+    session.sendTyping();
+    console.log(restaurantInfo.url);
     let restaurantCard = {
         contentType : "application/vnd.microsoft.card.adaptive",
         content : {
             type : "AdaptiveCard",
             body : [
                 {
-                    "type" : "TextBlock",
-                    "text" : restaurantInfo
+                    "type" : "ColumnSet",
+                    "columns" : [
+                        {
+                            "type" : "Column",
+                            "items" : [
+                                {
+                                    "type" : "TextBlock",
+                                    "text" : restaurantInfo.name,
+                                    "size" : "extraLarge"
+                                },
+                                {
+                                    "type" : "TextBlock",
+                                    "text" : restaurantInfo.price + " · rating:" + restaurantInfo.rating
+                                },
+                                {
+                                    "type" : "TextBlock",
+                                    "text" : "Location: " + restaurantInfo.location.address1
+                                }
+                            ]
+                        }
+                        ,
+                        {
+                            "type" : "Column",
+                            "items" : [
+                                {
+                                    "type" : "Image",
+                                    "url" : restaurantInfo.image_url
+                                }
+                            ]
+
+                        }
+                    ]
+                }
+            ],
+            actions : [
+                {
+                    "type" : "Action.OpenUrl",
+                    "title" : "More Info",
+                    "url" : restaurantInfo.url
                 }
             ]
         }
     }
 
+    console.log(restaurantCard);
+    let message = new builder.Message(session).addAttachment(restaurantCard);
+    session.send('Here is a good bubble tea shop around you');
+    session.endDialog(message);
+
 };
 
-const retrieveRestaurantInfo = function(latitude, longitude) {
-    console.log('in retrieverestaurantinfi');
-    //const url = `https://maps.googleapis.com/maps/api/geocode/json?address=&key=${process.env.GOOGLE_GEOCODING_API_KEY}``
-    const url = `https://api.yelp.com/v3/businesses/search?term=bubble+tea&latitude=${latitude}&longitude=${longitude}&open_now=true`;
-    const options = {
+const getLocationCoordinates = function (address, session, callback) {
+    session.sendTyping();
+    //https://stackoverflow.com/questions/30389764/wait-for-request-to-finish-node-js
+    //https://stackoverflow.com/questions/45291233/node-js-post-request-not-working-if-called-inside-get-request-callback
+    //stackover that solved the issue of request call back not being called
+    let url = `https://maps.googleapis.com/maps/api/geocode/json?address=${address}&key=${process.env.GOOGLE_GEOCODING_API_KEY}`;
+    let options = {
+        url : url,
+        method : 'GET'
+    };
+    let latitude;
+    let longitude;
+    console.log("in getlocationcoordinates");
+    request.get(url).end((err, res) => {
+        let body = res.body;
+        console.log(body.results.length);
+        if (body.results.length == 1) {
+            console.log('in body results');
+            console.log(body.results[0]);
+            latitude = body.results[0].geometry.location.lat;
+            longitude = body.results[0].geometry.location.lng;
+
+            callback(latitude, longitude, session, sendRestaurantAdaptiveCard);
+        } else {
+            session.endDialog('Sorry I could not determine your location');
+        }
+    });
+}
+
+const retrieveRestaurantInfo = function (latitude, longitude, session, callback) {
+    session.sendTyping();
+    let url = `https://api.yelp.com/v3/businesses/search?term=bubble+tea&latitude=${latitude}&longitude=${longitude}&open_now=true`;
+    let options = {
         url : url,
         method : 'GET',
         headers : {
             'Authorization' : process.env.YELP_API_ACCESS_TOKEN
         }
-    }
-    request(options, (err, res, body) => {
+    };
+    console.log(options);
+    request.get(url).set('Authorization', process.env.YELP_API_ACCESS_TOKEN).end((err, res) => {
         if (err) {
-
+            console.log(error);
         } else {
-            body = JSON.parse(body);
+            let body = res.body;
+            if (body.businesses.length > 0) {
+                let resultsArray = new Array();
+                let length = body.businesses.length > 3 ? 3 : body.businesses.length;
+                for (let i = 0; i < length; i++) {
+                    resultsArray[i] = body.businesses[i];
+                }
+                callback(resultsArray[0], session);
+            } else {
+                session.endDialog('Sorry I could not find a open shop around you');
+            }
         }
-    })
-
+    });
 }
-
-
 
 if (useEmulator) {
     const restify = require('restify');

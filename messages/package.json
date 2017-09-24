@@ -6,11 +6,11 @@
   "dependencies": {
     "botbuilder": "^3.7.0",
     "botbuilder-azure": "3.0.2",
-    "botbuilder-location": "^2.0.0",
     "dotenv": "^4.0.0",
     "microsoft-adaptivecards": "^0.6.1",
     "request": "^2.82.0",
-    "restify": "^4.3.1"
+    "restify": "^4.3.1",
+    "superagent": "^3.6.0"
   },
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1"

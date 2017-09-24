@@ -18,6 +18,7 @@ module.exports = (session, args, next) => {
             'Ocp-Apim-Subscription-Key' : process.env.QnASubscriptionKey
         }
     };
+
     request(options , (err, res, body) => {
         if (err) {
             console.log(err);
@@ -35,4 +36,5 @@ module.exports = (session, args, next) => {
             }
         }
     })
+
 }
