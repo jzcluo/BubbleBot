@@ -2,6 +2,7 @@ const request = require('request');
 
 
 module.exports = (session, args, next) => {
+    console.log('qnamaker called');
     session.sendTyping();
     const questionAsked = session.message.text;
     const bodyText = JSON.stringify({question : questionAsked});
