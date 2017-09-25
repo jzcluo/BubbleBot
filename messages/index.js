@@ -34,6 +34,9 @@ const bot = new builder.UniversalBot(connector, [
 ]);
 //whether to persist conversationdata
 //bot.set(`persistConversationData`, false);
+const run = function() {
+    //bot.sent(new builder.Message())
+};
 
 bot.dialog('qnadialog', (session, args, next) => {
     session.sendTyping();
