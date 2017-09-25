@@ -1,6 +1,6 @@
 {
   "scriptFile" : "index.js",
-  "disabled": false,
+  "disabled": true,
   "bindings": [
     {
       "authLevel": "function",
