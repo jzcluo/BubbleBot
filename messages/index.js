@@ -1,4 +1,4 @@
-"use strict";
+//"use strict";
 const builder = require("botbuilder");
 const botbuilder_azure = require("botbuilder-azure");
 const path = require('path');
@@ -36,7 +36,42 @@ const bot = new builder.UniversalBot(connector, [
 //bot.set(`persistConversationData`, false);
 
 
-bot.dialog('qnadialog', require('./qnadialog.js')).triggerAction({
+bot.dialog('qnadialog',(session, args, next) => {
+    console.log('qnamaker called');
+    session.sendTyping();
+    const questionAsked = session.message.text;
+    const bodyText = JSON.stringify({question : questionAsked});
+    const host = `https://westus.api.cognitive.microsoft.com/qnamaker/v2.0/`;
+    const url = `${host}knowledgebases/${process.env.KnowledgeBaseID}/generateAnswer`;
+    console.log(url);
+
+    const options = {
+        url : url,
+        method : 'POST',
+        body : bodyText,
+        headers : {
+            'Ocp-Apim-Subscription-Key' : process.env.QnASubscriptionKey
+        }
+    };
+
+    req(options , (err, res, body) => {
+        if (err) {
+            console.log(err);
+            session.endConversation('Sorry something went wrong');
+        } else {
+            const response = JSON.parse(body)['answers'][0];
+            console.log(response);
+            if (response.score > 60) {
+                session.endConversation(response.answer);
+            } else if (response.score > 30) {
+                session.send('I am not sure if this is right');
+                session.endConversation(response.answer);
+            } else {
+                session.endConversation('sorry I do not have the answer you need');
+            }
+        }
+    })
+}).triggerAction({
     matches : 'QnAIntent'
 });
 
@@ -116,8 +151,8 @@ bot.dialog('searchBubbleTea', [
     (session, results, next) => {
         if (results.response) {
             session.conversationData.address += '+' + results.response.split(" ").join("+");
-            let getLocationCoordinates = require('./getLocationCoordinates.js');
-            getLocationCoordinates(session.conversationData.address, session, require('./retrieveRestaurantInfo.js'));
+            //let getLocationCoordinates = require('./getLocationCoordinates.js');
+            getLocationCoordinates(session.conversationData.address, session, retrieveRestaurantInfo);
         } else {
             session.endDialog('OK Bye');
         }
@@ -127,7 +162,7 @@ bot.dialog('searchBubbleTea', [
     matches : 'search'
 });
 
-/*
+
 const sendRestaurantAdaptiveCard = (restaurantInfo, session) => {
     session.sendTyping();
     console.log(restaurantInfo.url);
@@ -187,8 +222,7 @@ const sendRestaurantAdaptiveCard = (restaurantInfo, session) => {
     session.endDialog(message);
 
 };
-*/
-/*
+
 const getLocationCoordinates = function (address, session, callback) {
     session.sendTyping();
     //https://stackoverflow.com/questions/30389764/wait-for-request-to-finish-node-js
@@ -211,14 +245,14 @@ const getLocationCoordinates = function (address, session, callback) {
             latitude = body.results[0].geometry.location.lat;
             longitude = body.results[0].geometry.location.lng;
 
-            callback(latitude, longitude, session, require('./sendAdaptiveCard.js'));
+            callback(latitude, longitude, session, sendRestaurantAdaptiveCard);
         } else {
             session.endDialog('Sorry I could not determine your location');
         }
     });
 }
-*/
-/*
+
+
 const retrieveRestaurantInfo = function (latitude, longitude, session, callback) {
     session.sendTyping();
     let url = `https://api.yelp.com/v3/businesses/search?term=bubble+tea&latitude=${latitude}&longitude=${longitude}&open_now=true`;
@@ -248,4 +282,3 @@ const retrieveRestaurantInfo = function (latitude, longitude, session, callback)
         }
     });
 }
-*/
