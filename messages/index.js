@@ -6,15 +6,24 @@ const request = require('superagent');
 require('dotenv').config();
 
 
-
-var useEmulator = false;//(process.env.NODE_ENV == 'development');
-
-var connector = useEmulator ? new builder.ChatConnector() : new botbuilder_azure.BotServiceConnector({
-    appId: process.env['MICROSOFT_APP_ID'],
-    appPassword: process.env['MICROSOFT_APP_PASSWORD'],
-    stateEndpoint: process.env['BotStateEndpoint'],
-    openIdMetadata: process.env['BotOpenIdMetadata']
+var connector =  new builder.ChatConnector({
+    appId: process.env.MICROSOFT_APP_ID,
+    appPassword: process.env.MICROSOFT_APP_PASSWORD
 });
+
+var useEmulator = true;
+
+if (useEmulator) {
+    const restify = require('restify');
+    const server = restify.createServer();
+    server.listen(3978, function() {
+        console.log('test bot endpont at http://localhost:3978/api/messages');
+    });
+    server.post('/api/messages', connector.listen());
+} else {
+    module.exports = { default: connector.listen() }
+}
+
 
 
 const bot = new builder.UniversalBot(connector, [
@@ -237,15 +246,4 @@ const retrieveRestaurantInfo = function (latitude, longitude, session, callback)
             }
         }
     });
-}
-
-if (useEmulator) {
-    const restify = require('restify');
-    const server = restify.createServer();
-    server.listen(3978, function() {
-        console.log('test bot endpont at http://localhost:3978/api/messages');
-    });
-    server.post('/api/messages', connector.listen());
-} else {
-    module.exports = { default: connector.listen() }
 }
