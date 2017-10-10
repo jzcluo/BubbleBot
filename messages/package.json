@@ -7,10 +7,8 @@
     "botbuilder": "^3.11.0",
     "dotenv": "^4.0.0",
     "request": "^2.83.0",
+    "restify": "^4.3.1",
     "superagent": "^3.6.3"
-  },
-  "devDependencies": {
-    "restify": "^4.1.1"
   },
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1"
