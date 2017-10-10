@@ -1,6 +1,5 @@
 "use strict";
 const builder = require("botbuilder");
-const path = require('path');
 const request = require('superagent');
 const req = require('request');
 require('dotenv').config();
