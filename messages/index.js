@@ -1,6 +1,5 @@
-//"use strict";
+"use strict";
 const builder = require("botbuilder");
-const botbuilder_azure = require("botbuilder-azure");
 const path = require('path');
 const request = require('superagent');
 const req = require('request');
@@ -21,8 +20,6 @@ if (useEmulator) {
         console.log('test bot endpont at http://localhost:3978/api/messages');
     });
     server.post('/api/messages', connector.listen());
-} else {
-    module.exports = { default: connector.listen() }
 }
 
 
@@ -76,15 +73,7 @@ bot.dialog('qnadialog',(session, args, next) => {
 });
 
 const recognizer = new builder.LuisRecognizer(process.env.LUIS_MODEL_URL);
-/*
-recognizer.onEnabled((context, callback) => {
-    if (context.dialogStack().length > 0) {
-        callback(null, false);
-    } else {
-        callback(null, true);
-    }
-});
-*/
+
 bot.recognizer(recognizer);
 bot.localePath(path.join(__dirname, './locale'));
 
@@ -151,7 +140,6 @@ bot.dialog('searchBubbleTea', [
     (session, results, next) => {
         if (results.response) {
             session.conversationData.address += '+' + results.response.split(" ").join("+");
-            //let getLocationCoordinates = require('./getLocationCoordinates.js');
             getLocationCoordinates(session.conversationData.address, session, retrieveRestaurantInfo);
         } else {
             session.endDialog('OK Bye');
@@ -250,7 +238,7 @@ const getLocationCoordinates = function (address, session, callback) {
             session.endDialog('Sorry I could not determine your location');
         }
     });
-}
+};
 
 
 const retrieveRestaurantInfo = function (latitude, longitude, session, callback) {
@@ -281,4 +269,4 @@ const retrieveRestaurantInfo = function (latitude, longitude, session, callback)
             }
         }
     });
-}
+};
