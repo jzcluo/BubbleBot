@@ -1,24 +1,26 @@
 "use strict";
-const builder = require("botbuilder");
+var builder = require("botbuilder");
+var botbuilder_azure = require("botbuilder-azure");
 const request = require('superagent');
-const req = require('request');
-require('dotenv').config();
 
+var useEmulator = (process.env.NODE_ENV == 'development');
 
-var connector =  new builder.ChatConnector({
-    appId: process.env.MICROSOFT_APP_ID,
-    appPassword: process.env.MICROSOFT_APP_PASSWORD
+var connector = useEmulator ? new builder.ChatConnector() : new botbuilder_azure.BotServiceConnector({
+    appId: process.env['MicrosoftAppId'],
+    appPassword: process.env['MicrosoftAppPassword'],
+    stateEndpoint: process.env['BotStateEndpoint'],
+    openIdMetadata: process.env['BotOpenIdMetadata']
 });
 
-var useEmulator = true;
-
 if (useEmulator) {
-    const restify = require('restify');
-    const server = restify.createServer();
+    var restify = require('restify');
+    var server = restify.createServer();
     server.listen(3978, function() {
         console.log('test bot endpont at http://localhost:3978/api/messages');
     });
-    server.post('/api/messages', connector.listen());
+    server.post('/api/messages', connector.listen());    
+} else {
+    module.exports = { default: connector.listen() }
 }
 
 
@@ -40,41 +42,35 @@ bot.dialog('qnadialog',(session, args, next) => {
     const host = `https://westus.api.cognitive.microsoft.com/qnamaker/v2.0/`;
     const url = `${host}knowledgebases/${process.env.KnowledgeBaseID}/generateAnswer`;
     console.log(url);
-
-    const options = {
-        url : url,
-        method : 'POST',
-        body : bodyText,
-        headers : {
-            'Ocp-Apim-Subscription-Key' : process.env.QnASubscriptionKey
-        }
-    };
-
-    req(options , (err, res, body) => {
-        if (err) {
-            console.log(err);
-            session.endConversation('Sorry something went wrong');
-        } else {
-            const response = JSON.parse(body)['answers'][0];
-            console.log(response);
-            if (response.score > 60) {
-                session.endConversation(response.answer);
-            } else if (response.score > 30) {
-                session.send('I am not sure if this is right');
-                session.endConversation(response.answer);
-            } else {
-                session.endConversation('sorry I do not have the answer you need');
-            }
-        }
-    })
+    
+    request.post(url)
+            .send(bodyText)
+            .set("Content-Type", "application/json")
+            .set("Ocp-Apim-Subscription-Key", process.env.QnASubscriptionKey)
+            .end((err, res) => {
+                if (err) {
+                    console.log(err);
+                    session.endConversation('Sorry something went wrong');
+                } else {
+                    console.log(res)
+                    const response = res.body['answers'][0];
+                    //console.log(response);
+                    if (response.score > 60) {
+                        session.endConversation(response.answer);
+                    } else if (response.score > 30) {
+                        session.send('I am not sure if this is right');
+                        session.endConversation(response.answer);
+                    } else {
+                        session.endConversation('sorry I do not have the answer you need');
+                    }
+                }
+            });
 }).triggerAction({
     matches : 'QnAIntent'
 });
 
 const recognizer = new builder.LuisRecognizer(process.env.LUIS_MODEL_URL);
-
 bot.recognizer(recognizer);
-bot.localePath(path.join(__dirname, './locale'));
 
 bot.dialog('hi', [
     (session, args, next) => {
