@@ -2,6 +2,7 @@
 var builder = require("botbuilder");
 var botbuilder_azure = require("botbuilder-azure");
 const request = require('superagent');
+require('dotenv').config();
 
 var useEmulator = (process.env.NODE_ENV == 'development');
 
@@ -18,7 +19,7 @@ if (useEmulator) {
     server.listen(3978, function() {
         console.log('test bot endpont at http://localhost:3978/api/messages');
     });
-    server.post('/api/messages', connector.listen());    
+    server.post('/api/messages', connector.listen());
 } else {
     module.exports = { default: connector.listen() }
 }
@@ -42,7 +43,7 @@ bot.dialog('qnadialog',(session, args, next) => {
     const host = `https://westus.api.cognitive.microsoft.com/qnamaker/v2.0/`;
     const url = `${host}knowledgebases/${process.env.KnowledgeBaseID}/generateAnswer`;
     console.log(url);
-    
+
     request.post(url)
             .send(bodyText)
             .set("Content-Type", "application/json")

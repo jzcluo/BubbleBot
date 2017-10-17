@@ -9,6 +9,7 @@
     "superagent": "^3.6.3"
   },
   "devDependencies": {
+    "dotenv": "^4.0.0",
     "restify": "^4.3.0"
   },
   "scripts": {
