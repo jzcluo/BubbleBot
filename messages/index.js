@@ -39,7 +39,7 @@ bot.dialog('qnadialog',(session, args, next) => {
     console.log('qnamaker called');
     session.sendTyping();
     const questionAsked = session.message.text;
-    const bodyText = JSON.stringify({question : questionAsked});
+    const bodyText = JSON.stringify({question : questionAsked, top : 7});
     const host = `https://westus.api.cognitive.microsoft.com/qnamaker/v2.0/`;
     const url = `${host}knowledgebases/${process.env.KnowledgeBaseID}/generateAnswer`;
     console.log(url);
@@ -51,18 +51,18 @@ bot.dialog('qnadialog',(session, args, next) => {
             .end((err, res) => {
                 if (err) {
                     console.log(err);
-                    session.endConversation('Sorry something went wrong');
+                    session.endDialog('Sorry something went wrong');
                 } else {
-                    console.log(res)
-                    const response = res.body['answers'][0];
+                    const answers = res.body['answers'];
                     //console.log(response);
-                    if (response.score > 60) {
-                        session.endConversation(response.answer);
-                    } else if (response.score > 30) {
+                    if (answers[0].score > 60) {
+                        session.endDialog(answers[0].answer);
+                    } /*else if (answers.score > 30) {
                         session.send('I am not sure if this is right');
-                        session.endConversation(response.answer);
-                    } else {
-                        session.endConversation('sorry I do not have the answer you need');
+                        session.endDialog(answers.answer);
+                    }*/ else {
+                        searchWebResults(questionAsked, session);
+                        //session.endDialog('sorry I do not have the answer you need');
                     }
                 }
             });
@@ -266,3 +266,73 @@ const retrieveRestaurantInfo = function (latitude, longitude, session, callback)
         }
     });
 };
+
+const searchWebResults = function (question, session) {
+    let url = 'https://api.cognitive.microsoft.com/bing/v7.0/search?q=' + question.replace(/\s/g, '+');
+    request
+        .get(url)
+        .query({q : question.replace(/\s/g, "+")})
+        .set('Ocp-Apim-Subscription-Key', process.env.BING_SEARCH_API_KEY)
+        .end((err, res) => {
+            let webPages = res.body.webPages.value;
+            console.log(webPages[0].snippet);
+
+            let answerCard = {
+                contentType : "application/vnd.microsoft.card.adaptive",
+                content : {
+                    type : "AdaptiveCard",
+                    body : [
+                        {
+                            "type" : "TextBlock",
+                            "text" : webPages[0].snippet,
+                            "wrap" : true
+                        }
+                    ],
+                    actions : [
+                        {
+                            "type" : "Action.OpenUrl",
+                            "title" : "More Info",
+                            "url" : webPages[0].url
+                        }
+                    ]
+                }
+            }
+            let message = new builder.Message(session).addAttachment(answerCard);
+            updateKnowledgeBase(question, webPages[0].snippet.split("\.")[0])
+            session.endDialog(message);
+        });
+}
+
+const updateKnowledgeBase = function (question, answer) {
+    let url = `https://westus.api.cognitive.microsoft.com/qnamaker/v2.0/knowledgebases/${process.env.KnowledgeBaseID}`;
+    console.log("in update knowledge base");
+    let bodyJSON = {
+        "add" : {
+            "qnaPairs" : [
+                {
+                    "answer" : answer,
+                    "question" : question
+                }
+            ]
+        }
+    };
+    request
+        .patch(url)
+        .set('Ocp-Apim-Subscription-Key', process.env.QnASubscriptionKey)
+        .send(bodyJSON)
+        .end((err, res) => {
+            console.log('Update success');
+            publishKnowledgeBase();
+        })
+}
+
+const publishKnowledgeBase = function () {
+    let url = `https://westus.api.cognitive.microsoft.com/qnamaker/v2.0/knowledgebases/${process.env.KnowledgeBaseID}`;
+
+    request
+        .put(url)
+        .set('Ocp-Apim-Subscription-Key', process.env.QnASubscriptionKey)
+        .end((err, res) => {
+            console.log('Publish success');
+        })
+}
