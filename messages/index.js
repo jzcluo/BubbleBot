@@ -1,8 +1,9 @@
 "use strict";
-var builder = require("botbuilder");
-var botbuilder_azure = require("botbuilder-azure");
+const builder = require("botbuilder");
+const botbuilder_azure = require("botbuilder-azure");
 const request = require('superagent');
 require('dotenv').config();
+const nodemailer = require('nodemailer');
 
 var useEmulator = (process.env.NODE_ENV == 'development');
 
@@ -34,39 +35,74 @@ const bot = new builder.UniversalBot(connector, [
 //whether to persist conversationdata
 //bot.set(`persistConversationData`, false);
 
+let conversationLog = '';
 
-bot.dialog('qnadialog',(session, args, next) => {
-    console.log('qnamaker called');
-    session.sendTyping();
-    const questionAsked = session.message.text;
-    const bodyText = JSON.stringify({question : questionAsked, top : 7});
-    const host = `https://westus.api.cognitive.microsoft.com/qnamaker/v2.0/`;
-    const url = `${host}knowledgebases/${process.env.KnowledgeBaseID}/generateAnswer`;
-    console.log(url);
+//set up middleware to intercept messages
+bot.use({
+    receive : (event, next) => {
+        console.log(conversationLog);
+        conversationLog += 'User : ' + event.text + '<br/>';
+        next();
+    },
+    send : (event, next) => {
+        console.log(conversationLog);
+        if (event.text) {
+            conversationLog += 'Bot : ' + event.text + '<br/>';
+        } else {
+            conversationLog += 'Bot : <i>sends card</i><br/>';
+        }
+        next();
+    }
+});
 
-    request.post(url)
-            .send(bodyText)
-            .set("Content-Type", "application/json")
-            .set("Ocp-Apim-Subscription-Key", process.env.QnASubscriptionKey)
-            .end((err, res) => {
-                if (err) {
-                    console.log(err);
-                    session.endDialog('Sorry something went wrong');
-                } else {
-                    const answers = res.body['answers'];
-                    //console.log(response);
-                    if (answers[0].score > 60) {
-                        session.endDialog(answers[0].answer);
-                    } /*else if (answers.score > 30) {
-                        session.send('I am not sure if this is right');
-                        session.endDialog(answers.answer);
-                    }*/ else {
-                        searchWebResults(questionAsked, session);
-                        //session.endDialog('sorry I do not have the answer you need');
+
+
+
+bot.dialog('qnadialog',[
+    (session, args, next) => {
+        console.log('qnamaker called');
+        session.sendTyping();
+        const questionAsked = session.message.text;
+        const bodyText = JSON.stringify({question : questionAsked, top : 7});
+        const host = `https://westus.api.cognitive.microsoft.com/qnamaker/v2.0/`;
+        const url = `${host}knowledgebases/${process.env.KnowledgeBaseID}/generateAnswer`;
+        console.log(url);
+
+        request.post(url)
+                .send(bodyText)
+                .set("Content-Type", "application/json")
+                .set("Ocp-Apim-Subscription-Key", process.env.QnASubscriptionKey)
+                .end((err, res) => {
+                    if (err) {
+                        console.log(err);
+                        session.endDialog('Sorry something went wrong');
+                    } else {
+                        const answers = res.body['answers'];
+                        //console.log(response);
+                        if (answers[0].score > 60) {
+                            session.endDialog(answers[0].answer);
+                        } /*else if (answers.score > 30) {
+                            session.send('I am not sure if this is right');
+                            session.endDialog(answers.answer);
+                        }*/ else {
+                            searchWebResults(questionAsked, session);
+                            //session.endDialog('sorry I do not have the answer you need');
+                        }
                     }
-                }
-            });
-}).triggerAction({
+                });
+    },
+    (session, results) => {
+        if (results.response) {
+            if (results.response.entity == 'YES') {
+                updateKnowledgeBase(session.dialogData.question, session.dialogData.answer);
+            } else if (results.response.entity == 'NO') {
+                //send a email report
+                session.send('Sorry about that, I will get back to you when I have the answer ready');
+                sendIssueLog(session);
+            }
+        }
+    }
+]).triggerAction({
     matches : 'QnAIntent'
 });
 
@@ -76,26 +112,62 @@ bot.recognizer(recognizer);
 bot.dialog('hi', [
     (session, args, next) => {
         session.send('Hi there, I am Bubble Bot, I can tell you things about bubble tea or the bubble tea shops around you');
-        let message = new builder.Message(session).addAttachment({
-            contentType : "application/vnd.microsoft.card.adaptive",
-            content : {
-                type : "AdaptiveCard",
-                body : [
-                    {
-                        "type" : "TextBlock",
-                        "text" : "Hi Bubble Lover",
-                        "size" : "large"
-                    },
-                    {
-                        "type" : "TextBlock",
-                        "text" : "You can choose one of the below options or ask me anything to get started!",
-                        "size" : "medium",
-                        "wrap" : true
-                    }
-                ]
+
+        let thumbnailCard = new builder.ThumbnailCard(session)
+                            .title('Hi Bubble Lover')
+                            .subtitle('Pick any of the below options or ask a question to get started. Sample question : does bubble tea have caffeine, where can I get bubble tea')
+                            .buttons([
+                                builder.CardAction.postBack(session,'Buy', 'Get the closes bubble tea shop'),
+                                builder.CardAction.postBack(session, 'Ask', 'Learn more about bubble tea'),
+                                builder.CardAction.postBack(session, 'Cook', 'Learn how to make bubble tea yourself'),
+                                builder.CardAction.postBack(session, 'Clear', 'Clear my user data')
+                            ]);
+
+
+        let message = new builder.Message(session).addAttachment(thumbnailCard);
+
+        let choices = ['Buy', 'Ask', 'Cook', 'Clear'];
+        builder.Prompts.choice(session, message, choices);
+
+    },
+    (session, results, next) => {
+        if (results.response) {
+            switch (results.response.entity) {
+                case 'Buy' :
+                    session.beginDialog('searchBubbleTea');
+                    break;
+                case 'Ask' :
+                    let sampleQuestions = [
+                        'How many calories are there in bubble tea?',
+                        'Does bubble tea have caffeine?',
+                        'Who invented bubble tea?',
+                        'What is it made of?'
+                    ];
+                    let thumbnailCard = new builder.ThumbnailCard(session)
+                                            .title('Sample Questions')
+                                            .subtitle('Pick any of the following or ask your own')
+                                            .buttons(sampleQuestions.map(question => builder.CardAction.imBack(session, question, question)));
+
+                    let message = new builder.Message(session).addAttachment(thumbnailCard);
+
+                    session.endDialog(message);
+                    //session.endDialog('Please type any question you have about bubble tea');
+                    break;
+                case 'Cook' :
+                    session.endDialog('coming soon...');
+                    break;
+                case 'Clear' :
+                    //set empty and call save
+                    //https://docs.microsoft.com/en-us/bot-framework/nodejs/bot-builder-nodejs-state
+                    session.userData = {};
+                    session.conversationData = {};
+                    session.dialogData = {};
+                    session.save();
+                    session.endDialog('Your data in this bot has been cleared');
+                    break;
+
             }
-        })
-        session.send(message);
+        }
     }
 ]).triggerAction({
     matches : 'hi'
@@ -298,10 +370,14 @@ const searchWebResults = function (question, session) {
                 }
             }
             let message = new builder.Message(session).addAttachment(answerCard);
-            updateKnowledgeBase(question, webPages[0].snippet.split("\.")[0])
-            session.endDialog(message);
+            //updateKnowledgeBase(question, webPages[0].snippet.split("\.")[0]);
+            session.dialogData.question = question;
+            session.dialogData.answer = webPages[0].snippet.split("\.")[0];
+            session.save();
+            session.send(message);
+            builder.Prompts.choice(session, "The above answer was pulled from the internet. Did that answer your question?", ["YES", "NO"], {listStyle : builder.ListStyle.button});
         });
-}
+};
 
 const updateKnowledgeBase = function (question, answer) {
     let url = `https://westus.api.cognitive.microsoft.com/qnamaker/v2.0/knowledgebases/${process.env.KnowledgeBaseID}`;
@@ -324,7 +400,7 @@ const updateKnowledgeBase = function (question, answer) {
             console.log('Update success');
             publishKnowledgeBase();
         })
-}
+};
 
 const publishKnowledgeBase = function () {
     let url = `https://westus.api.cognitive.microsoft.com/qnamaker/v2.0/knowledgebases/${process.env.KnowledgeBaseID}`;
@@ -335,4 +411,35 @@ const publishKnowledgeBase = function () {
         .end((err, res) => {
             console.log('Publish success');
         })
-}
+};
+
+const sendIssueLog = function(session) {
+    let transporter = nodemailer.createTransport({
+        host : "smtp-mail.outlook.com",
+        secureConnection : false,
+        port : 587,
+        tls: {
+           ciphers:'SSLv3'
+        },
+        auth: {
+            user: 'bubble.bot@outlook.com',
+            pass: '1LoveBuBBleTea!'
+        }
+    });
+
+    let mailOptions = {
+        from: '"Your personal bubble expert" <bubble.bot@outlook.com>', // sender address (who sends)
+        to: 'zluo@gatech.edu', // list of receivers (who receives) separated by commas
+        subject: 'Issue Log with user', // Subject line
+        html: `<p>Question : ${session.dialogData.question}<br/>BotAnswer : ${session.dialogData.answer}</p><br/><h2>Full Conversation Transcript</h2><br/><p>${conversationLog.substring(24)}</p>` // html body
+    };
+    conversationLog = '';
+
+    transporter.sendMail(mailOptions, function(error, info){
+        if(error){
+            console.log(error);
+        }
+
+        console.log('Message sent: ' + info.response);
+    });
+};
