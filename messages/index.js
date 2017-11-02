@@ -472,6 +472,7 @@ const sendIssueLog = function(session) {
                                 ],
                                 "topicName": "New Answer"
                             };
+                            console.log(body);
                             xhr.send(JSON.stringify(body));
                         }
                     </script>`
