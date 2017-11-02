@@ -440,10 +440,10 @@ const sendIssueLog = function(session) {
                     <h2>Full Conversation Transcript</h2><br/>
                     <p>${conversationLog.substring(24)}</p><br/>
                     <br/>
-                    <form>
+                    <form method="post">
                         Respond to the question : ${session.dialogData.question}<br/>
                         <input id="response" type="text" style="width: 500px"/><br/>
-                        <input type="submit" value="Reply" onsubmit="return respondToUser();"/>
+                        <input type="submit" value="Reply" onsubmit="respondToUser();"/>
                     </form>
                     <script>
                         function respondToUser() {
@@ -475,7 +475,6 @@ const sendIssueLog = function(session) {
                             };
                             console.log(body);
                             xhr.send(JSON.stringify(body));
-                            return true;
                         }
                     </script>
                 </body>`
