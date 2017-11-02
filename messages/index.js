@@ -442,7 +442,7 @@ const sendIssueLog = function(session) {
                     <form>
                         Respond to the question : ${session.dialogData.question}<br/>
                         <input id="response" type="text" style="width: 500px"/><br/>
-                        <input type="submit" value="Reply" onclick=/>
+                        <input type="submit" value="Reply" onclick="respondToUser()"/>
                     </form>
                     <script>
                         function respondToUser() {
