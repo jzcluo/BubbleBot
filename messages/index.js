@@ -440,43 +440,45 @@ const sendIssueLog = function(session) {
                     <h2>Full Conversation Transcript</h2><br/>
                     <p>${conversationLog.substring(24)}</p><br/>
                     <br/>
-                    <form method="post">
-                        Respond to the question : ${session.dialogData.question}<br/>
-                        <input id="response" type="text" style="width: 500px"/><br/>
-                        <input type="button" value="Reply" onsubmit="respondToUser();"/>
-                    </form>
-                    <script>
-                        function respondToUser() {
-                            let response = document.getElementById("response").value;
-                            let xhr = new XMLHttpRequest();
-                            xhr.onreadystatechange = function () {
-                                if (this.readyState == 4 && this.status == 200) {
-                                    let response = JSON.parse(xhr.response);
-                                    console.log(response);
-                                }
-                            };
-                            let url = ${session.message.address.serviceUrl}/v3/conversations;
-                            xhr.setRequestHeader('Content-Type', 'application/json');
-                            xhr.setRequestHeader('Authorization', ${process.env.BEARER_ACCESS_TOKEN});
-                            xhr.open("POST", url, true);
-                            let body = {
-                                "bot": {
-                                    "id": ${session.message.address.bot.id},
-                                    "name": "Bubble Bot"
-                                },
-                                "isGroup": false,
-                                "members": [
-                                    {
-                                        "id": ${session.message.address.user.id},
-                                        "name": ${session.message.address.user.name}
+                    <span>
+                        <form method="post">
+                            Respond to the question : ${session.dialogData.question}<br/>
+                            <input id="response" type="text" style="width: 500px"/><br/>
+                            <input type="button" value="Reply" onsubmit="respondToUser();"/>
+                        </form>
+                        <script>
+                            function respondToUser() {
+                                let response = document.getElementById("response").value;
+                                let xhr = new XMLHttpRequest();
+                                xhr.onreadystatechange = function () {
+                                    if (this.readyState == 4 && this.status == 200) {
+                                        let response = JSON.parse(xhr.response);
+                                        console.log(response);
                                     }
-                                ],
-                                "topicName": "New Answer"
-                            };
-                            console.log(body);
-                            xhr.send(JSON.stringify(body));
-                        }
-                    </script>
+                                };
+                                let url = ${session.message.address.serviceUrl}/v3/conversations;
+                                xhr.setRequestHeader('Content-Type', 'application/json');
+                                xhr.setRequestHeader('Authorization', ${process.env.BEARER_ACCESS_TOKEN});
+                                xhr.open("POST", url, true);
+                                let body = {
+                                    "bot": {
+                                        "id": ${session.message.address.bot.id},
+                                        "name": "Bubble Bot"
+                                    },
+                                    "isGroup": false,
+                                    "members": [
+                                        {
+                                            "id": ${session.message.address.user.id},
+                                            "name": ${session.message.address.user.name}
+                                        }
+                                    ],
+                                    "topicName": "New Answer"
+                                };
+                                console.log(body);
+                                xhr.send(JSON.stringify(body));
+                            }
+                        </script>
+                    </span>
                 </body>`
     };
     conversationLog = '';
