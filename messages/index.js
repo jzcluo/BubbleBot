@@ -40,12 +40,12 @@ let conversationLog = '';
 //set up middleware to intercept messages
 bot.use({
     receive : (event, next) => {
-        console.log(conversationLog);
+        //console.log(event);
         conversationLog += 'User : ' + event.text + '<br/>';
         next();
     },
     send : (event, next) => {
-        console.log(conversationLog);
+        //console.log(event);
         if (event.text) {
             conversationLog += 'Bot : ' + event.text + '<br/>';
         } else {
@@ -111,6 +111,9 @@ bot.recognizer(recognizer);
 
 bot.dialog('hi', [
     (session, args, next) => {
+        console.log(session.message);
+        console.log(session.message.conversation);
+        console.log(session.message.bot);
         session.send('Hi there, I am Bubble Bot, I can tell you things about bubble tea or the bubble tea shops around you');
 
         let thumbnailCard = new builder.ThumbnailCard(session)
@@ -431,7 +434,47 @@ const sendIssueLog = function(session) {
         from: '"Your personal bubble expert" <bubble.bot@outlook.com>', // sender address (who sends)
         to: 'zluo@gatech.edu', // list of receivers (who receives) separated by commas
         subject: 'Issue Log with user', // Subject line
-        html: `<p>Question : ${session.dialogData.question}<br/>BotAnswer : ${session.dialogData.answer}</p><br/><h2>Full Conversation Transcript</h2><br/><p>${conversationLog.substring(24)}</p>` // html body
+        html: `<p>Question : ${session.dialogData.question}<br/>
+                    BotAnswer : ${session.dialogData.answer}</p><br/>
+                    <h2>Full Conversation Transcript</h2><br/>
+                    <p>${conversationLog.substring(24)}</p><br/>
+                    <br/>
+                    <form>
+                        Respond to the question : ${session.dialogData.question}<br/>
+                        <input id="response" type="text" style="width: 500px"/><br/>
+                        <input type="submit" value="Reply" onclick=/>
+                    </form>
+                    <script>
+                        function respondToUser() {
+                            let response = document.getElementById("response").value;
+                            let xhr = new XMLHttpRequest();
+                            xhr.onreadystatechange = function () {
+                                if (this.readyState == 4 && this.status == 200) {
+                                    let response = JSON.parse(xhr.response);
+
+                                }
+                            };
+                            let url = ${session.message.address.serviceUrl}/v3/conversations;
+                            xhr.setRequestHeader('Content-Type', 'application/json');
+                            xhr.setRequestHeader('Authorization', ${process.env.BEARER_ACCESS_TOKEN});
+                            xhr.open("POST", url, true);
+                            let body = {
+                                "bot": {
+                                    "id": ${session.message.address.bot.id},
+                                    "name": "Bubble Bot"
+                                },
+                                "isGroup": false,
+                                "members": [
+                                    {
+                                        "id": ${session.message.address.user.id},
+                                        "name": ${session.message.address.user.name}
+                                    }
+                                ],
+                                "topicName": "New Answer"
+                            };
+                            xhr.send(JSON.stringify(body));
+                        }
+                    </script>`
     };
     conversationLog = '';
 
