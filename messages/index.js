@@ -432,9 +432,10 @@ const sendIssueLog = function(session) {
 
     let mailOptions = {
         from: '"Your personal bubble expert" <bubble.bot@outlook.com>', // sender address (who sends)
-        to: 'zluo@gatech.edu', // list of receivers (who receives) separated by commas
+        to: 'zluo@gatech.edu, jeffreyzcluo@gmail.com', // list of receivers (who receives) separated by commas
         subject: 'Issue Log with user', // Subject line
-        html: `<p>Question : ${session.dialogData.question}<br/>
+        html: `<body>
+                    <p>Question : ${session.dialogData.question}<br/>
                     BotAnswer : ${session.dialogData.answer}</p><br/>
                     <h2>Full Conversation Transcript</h2><br/>
                     <p>${conversationLog.substring(24)}</p><br/>
@@ -442,7 +443,7 @@ const sendIssueLog = function(session) {
                     <form>
                         Respond to the question : ${session.dialogData.question}<br/>
                         <input id="response" type="text" style="width: 500px"/><br/>
-                        <input type="submit" value="Reply" onclick="respondToUser()"/>
+                        <input type="submit" value="Reply" onsubmit="return respondToUser();"/>
                     </form>
                     <script>
                         function respondToUser() {
@@ -474,8 +475,10 @@ const sendIssueLog = function(session) {
                             };
                             console.log(body);
                             xhr.send(JSON.stringify(body));
+                            return true;
                         }
-                    </script>`
+                    </script>
+                </body>`
     };
     conversationLog = '';
 
