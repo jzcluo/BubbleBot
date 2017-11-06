@@ -81,7 +81,7 @@ bot.dialog('qnadialog',[
                         //console.log(response);
                         if (answers[0].score > 60) {
                             //add message to conversation log
-                            conversationLog += `Card with message : "${answers[0].answer}"`;
+                            conversationLog += `Bot : Card with message : "${answers[0].answer}"`;
                             session.endDialog(answers[0].answer);
                         } /*else if (answers.score > 30) {
                             session.send('I am not sure if this is right');
@@ -383,7 +383,7 @@ const sendRestaurantAdaptiveCard = (restaurantsInfo, session) => {
 
     session.send('Here is a good bubble tea shop around you');
     //add card info to conversation log
-    conversationLog += `Card with message about tea shop "${restaurantsInfo[0].name}"`;
+    conversationLog += `Bot : Card with message about tea shop "${restaurantsInfo[0].name}"`;
     session.send(recommendedRestaurant);
     session.send("Or you could browse the other ones here");
     //add card info to conversation log
@@ -489,7 +489,7 @@ const searchWebResults = function (question, session) {
             session.save();
             session.send(message);
             //add message to conversatino log
-            conversationLog += `Card with message : "${webPages[0].snippet}`;
+             conversationLog += `Bot : Card with message : "${webPages[0].snippet}`;
             builder.Prompts.choice(session, "The above answer was pulled from the internet. Did that answer your question?", ["YES", "NO"], {listStyle : builder.ListStyle.button});
         });
 };
