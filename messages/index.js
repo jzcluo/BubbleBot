@@ -123,9 +123,9 @@ bot.dialog('hi', [
                             .title('Hi Bubble Lover')
                             .subtitle('Pick any of the below options or ask a question to get started. Sample question : does bubble tea have caffeine, where can I get bubble tea')
                             .buttons([
-                                builder.CardAction.postBack(session,'Buy', 'Get the closest bubble tea shop'),
-                                builder.CardAction.postBack(session, 'Ask', 'Learn more about bubble tea'),
-                                builder.CardAction.postBack(session, 'Cook', 'Learn how to make bubble tea yourself'),
+                                builder.CardAction.postBack(session,'Buy', 'Get bubble tea shop'),
+                                builder.CardAction.postBack(session, 'Ask', 'Learn about bubble tea'),
+                                builder.CardAction.postBack(session, 'Cook', 'Learn how to make it'),
                                 builder.CardAction.postBack(session, 'Clear', 'Clear my user data')
                             ]);
 
