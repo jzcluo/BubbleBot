@@ -238,43 +238,25 @@ bot.dialog('searchBubbleTea', [
     (session, args, next) => {
         if (args && args.intent.entities[0]) {
             getLocationCoordinates(args.intent.entities[0].entity, session, retrieveRestaurantInfo);
+            session.endDialog();
         } else if (session.userData.address) {
             session.beginDialog('searchWithUserInfo');
+            session.endDialog();
         } else {
             next();
         }
     },
     (session, results, next) => {
         if (!results.response) {
-            builder.Prompts.text(session, 'What is the street address?');
+            builder.Prompts.text(session, 'What is your address? (in the format{street, city, state} or a place name)');
         } else {
             session.endDialog();
         }
     },
     (session, results, next) => {
         if (results.response) {
-            session.conversationData.address = results.response.split(" ").join("+");
-            session.save();
-            builder.Prompts.text(session, 'What city are you in?');
-        } else {
-            //session.endDialog('Ok Bye');
-        }
-    },
-    (session, results, next) => {
-        if (results.response) {
-            session.conversationData.address += '+' + results.response.split(" ").join("+");
-            session.save();
-            builder.Prompts.text(session, 'What state are you in?');
-        } else {
-            //session.endDialog('OK Bye');
-        }
-
-    },
-    (session, results, next) => {
-        if (results.response) {
-            session.conversationData.address += '+' + results.response.split(" ").join("+");
-            session.save();
-            getLocationCoordinates(session.conversationData.address, session, retrieveRestaurantInfo);
+            console.log(results.response.split(" ").join("+").replace(",", ""));
+            getLocationCoordinates(results.response.split(" ").join("+").replace(",", ""), session, retrieveRestaurantInfo);
         } else {
             session.endDialog('OK Bye');
         }
@@ -289,6 +271,7 @@ bot.dialog('searchWithUserInfo', [
         builder.Prompts.choice(session, `Your address is ${session.userData.address}. Use this address?`, ["YES", "NO"], {listStyle : builder.ListStyle.button});
     },
     (session, results) => {
+        console.log(results.response);
         if (results.response) {
             if (results.response.entity == 'YES') {
                 //this function will call enddialog
