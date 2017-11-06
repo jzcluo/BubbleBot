@@ -49,7 +49,8 @@ bot.use({
         if (event.text) {
             conversationLog += 'Bot : ' + event.text + '<br/>';
         } else {
-            conversationLog += 'Bot : <i>sends card</i><br/>';
+            //if it is undefined. card message will be added in the card dialog
+            //conversationLog += 'Bot : <i>sends card</i><br/>';
         }
         next();
     }
@@ -80,6 +81,8 @@ bot.dialog('qnadialog',[
                         const answers = res.body['answers'];
                         //console.log(response);
                         if (answers[0].score > 60) {
+                            //add message to conversation log
+                            conversationLog += `Card with message : "${answers[0].answer}"`;
                             session.endDialog(answers[0].answer);
                         } /*else if (answers.score > 30) {
                             session.send('I am not sure if this is right');
@@ -120,7 +123,7 @@ bot.dialog('hi', [
                             .title('Hi Bubble Lover')
                             .subtitle('Pick any of the below options or ask a question to get started. Sample question : does bubble tea have caffeine, where can I get bubble tea')
                             .buttons([
-                                builder.CardAction.postBack(session,'Buy', 'Get the closes bubble tea shop'),
+                                builder.CardAction.postBack(session,'Buy', 'Get the closest bubble tea shop'),
                                 builder.CardAction.postBack(session, 'Ask', 'Learn more about bubble tea'),
                                 builder.CardAction.postBack(session, 'Cook', 'Learn how to make bubble tea yourself'),
                                 builder.CardAction.postBack(session, 'Clear', 'Clear my user data')
@@ -158,17 +161,14 @@ bot.dialog('hi', [
                     break;
                 case 'Cook' :
                     session.endDialog('coming soon...');
-                    break;
                 case 'Clear' :
                     //set empty and call save
                     //https://docs.microsoft.com/en-us/bot-framework/nodejs/bot-builder-nodejs-state
                     session.userData = {};
-                    session.conversationData = {};
-                    session.dialogData = {};
+                    //session.conversationData = {};
+                    //session.dialogData = {};
                     session.save();
                     session.endDialog('Your data in this bot has been cleared');
-                    break;
-
             }
         }
     }
@@ -179,12 +179,17 @@ bot.dialog('hi', [
 
 bot.dialog('searchBubbleTea', [
     (session, args, next) => {
-        console.log("Starting conversationdata");
-        console.log(session.conversationData);
-        if (!session.conversationData.address) {
+        if (session.userData.address) {
+            session.beginDialog('searchWithUserInfo');
+        } else {
+            next();
+        }
+    },
+    (session, results, next) => {
+        if (!results.response) {
             builder.Prompts.text(session, 'What is the street address?');
         } else {
-            getLocationCoordinates(session.conversationData.address, session, retrieveRestaurantInfo);
+            session.endDialog();
         }
     },
     (session, results, next) => {
@@ -192,9 +197,11 @@ bot.dialog('searchBubbleTea', [
         console.log(results.response);
         if (results.response) {
             session.conversationData.address = results.response.split(" ").join("+");
+            session.userData.address = results.response;
+            session.save();
             builder.Prompts.text(session, 'What city are you in?');
         } else {
-            session.endDialog('Ok Bye');
+            //session.endDialog('Ok Bye');
         }
     },
     (session, results, next) => {
@@ -202,15 +209,19 @@ bot.dialog('searchBubbleTea', [
         if (results.response) {
             console.log(results.response);
             session.conversationData.address += '+' + results.response.split(" ").join("+");
+            session.userData.address += " ," + results.response;
+            session.save();
             builder.Prompts.text(session, 'What state are you in?');
         } else {
-            session.endDialog('OK Bye');
+            //session.endDialog('OK Bye');
         }
 
     },
     (session, results, next) => {
         if (results.response) {
             session.conversationData.address += '+' + results.response.split(" ").join("+");
+            session.userData.address += " ," + results.response;
+            session.save();
             getLocationCoordinates(session.conversationData.address, session, retrieveRestaurantInfo);
         } else {
             session.endDialog('OK Bye');
@@ -220,6 +231,22 @@ bot.dialog('searchBubbleTea', [
 ]).triggerAction({
     matches : 'search'
 });
+
+bot.dialog('searchWithUserInfo', [
+    (session, args, next) => {
+        builder.Prompts.choice(session, `Your address is ${session.userData.address}. Use this address?`, ["YES", "NO"], {listStyle : builder.ListStyle.button});
+    },
+    (session, results) => {
+        if (results.response) {
+            if (results.response.entity == 'YES') {
+                //this function will call enddialog
+                getLocationCoordinates(session.userData.address, session, retrieveRestaurantInfo);
+            } else if (results.response.entity == 'NO') {
+                session.endDialog();
+            }
+        }
+    }
+]);
 
 
 const sendRestaurantAdaptiveCard = (restaurantInfo, session) => {
@@ -277,9 +304,10 @@ const sendRestaurantAdaptiveCard = (restaurantInfo, session) => {
 
     console.log(restaurantCard);
     let message = new builder.Message(session).addAttachment(restaurantCard);
+    //add card info to conversation log
+    conversationLog += `Card with message about restaurant "${restaurantInfo.name}"`;
     session.send('Here is a good bubble tea shop around you');
     session.endDialog(message);
-
 };
 
 const getLocationCoordinates = function (address, session, callback) {
@@ -378,6 +406,8 @@ const searchWebResults = function (question, session) {
             session.dialogData.answer = webPages[0].snippet.split("\.")[0];
             session.save();
             session.send(message);
+            //add message to conversatino log
+            conversationLog += `Card with message : "${webPages[0].snippet}`;
             builder.Prompts.choice(session, "The above answer was pulled from the internet. Did that answer your question?", ["YES", "NO"], {listStyle : builder.ListStyle.button});
         });
 };
