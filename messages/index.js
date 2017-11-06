@@ -29,7 +29,8 @@ if (useEmulator) {
 
 const bot = new builder.UniversalBot(connector, [
     (session, args) => {
-        session.send('Hello I am Bubble Bot');
+        session.send('Hi there, I am Bubble Bot, I can tell you things about bubble tea or the bubble tea shops around you');
+        session.beginDialog('hi');
     }
 ]);
 //whether to persist conversationdata
@@ -55,8 +56,6 @@ bot.use({
         next();
     }
 });
-
-
 
 
 bot.dialog('qnadialog',[
@@ -114,11 +113,6 @@ bot.recognizer(recognizer);
 
 bot.dialog('hi', [
     (session, args, next) => {
-        console.log(session.message);
-        console.log(session.message.conversation);
-        console.log(session.message.bot);
-        session.send('Hi there, I am Bubble Bot, I can tell you things about bubble tea or the bubble tea shops around you');
-
         let thumbnailCard = new builder.ThumbnailCard(session)
                             .title('Hi Bubble Lover')
                             .subtitle('Pick any of the below options or ask a question to get started. Sample question : does bubble tea have caffeine, where can I get bubble tea')
@@ -161,6 +155,7 @@ bot.dialog('hi', [
                     break;
                 case 'Cook' :
                     session.endDialog('coming soon...');
+                    break;
                 case 'Clear' :
                     //set empty and call save
                     //https://docs.microsoft.com/en-us/bot-framework/nodejs/bot-builder-nodejs-state
@@ -169,6 +164,7 @@ bot.dialog('hi', [
                     //session.dialogData = {};
                     session.save();
                     session.endDialog('Your data in this bot has been cleared');
+                    session.beginDialog('hi');
             }
         }
     }
@@ -177,10 +173,72 @@ bot.dialog('hi', [
 });
 
 
+bot.dialog('getFeedback', [
+    //instead of asking the user step by step if it was helpful. Use sentiment analysis
+    (session, args, next) => {
+        let url = "https://eastus.api.cognitive.microsoft.com/text/analytics/v2.0/sentiment";
+        let bodyJSON = {
+            "documents" : [
+                {
+                    "language" : "en",
+                    "id" : session.message.user.name + session.message.text + session.message.user.id,
+                    "text" : session.message.text
+                }
+            ]
+        };
+
+        request
+            .post(url)
+            .set('Ocp-Apim-Subscription-Key', process.env.SENTIMENT_ANALYSIS_KEY)
+            .send(bodyJSON)
+            .end((err, res) => {
+                if (err) {
+                    console.log(err);
+                    session.endDialog('Sorry something went wrong');
+                } else {
+                    console.log(res.body);
+                    let score = res.body.documents[0].score;
+                    if (score >= 0.5) {
+                        session.endConversation("Glad I helped! Goodbye~");
+                    } else {
+                        sendIssueLog(session);
+                        session.endConversation("Sorry about that, I will get better next time.");
+                    }
+                }
+            });
+    }
+    /*
+    (session, args, next) => {
+        builder.Prompts.choice(session, "Did that help you?", ["YES", "NO"], {listStyle : builder.ListStyle.button});
+    },
+    (session, results, next) => {
+        if (results.response) {
+            if (results.response.entity == 'YES') {
+                builder.Prompts.choice(session, "Is there anything else I could help you with today", ["YES", "NO"], {listStyle : builder.ListStyle.button});
+            } else if (results.response.entity == 'NO') {
+                sendIssueLog(session);
+                session.endConversation("Sorry about that, I will get better next time.");
+            }
+        }
+    },
+    (session, results) => {
+        if (results.response) {
+            if (results.response.entity == 'YES') {
+                session.beginDialog('hi');
+            } else if (results.response.entity == 'NO') {
+                session.beginDialog('bye');
+            }
+        }
+    }
+    */
+]).triggerAction({
+    matches : 'bye'
+});
+
+
 bot.dialog('searchBubbleTea', [
     (session, args, next) => {
-        console.log(args.intent.entities);
-        if (args.intent.entities[0]) {
+        if (args && args.intent.entities[0]) {
             getLocationCoordinates(args.intent.entities[0].entity, session, retrieveRestaurantInfo);
         } else if (session.userData.address) {
             session.beginDialog('searchWithUserInfo');
@@ -346,7 +404,7 @@ const getLocationCoordinates = function (address, session, callback) {
     };
     let latitude;
     let longitude;
-    console.log("in getlocationcoordinates");
+
     request.get(url).end((err, res) => {
         let body = res.body;
         if (body.results.length == 1) {
@@ -374,7 +432,6 @@ const retrieveRestaurantInfo = function (latitude, longitude, session, callback)
             'Authorization' : process.env.YELP_API_ACCESS_TOKEN
         }
     };
-    console.log(options);
     request.get(url).set('Authorization', process.env.YELP_API_ACCESS_TOKEN).end((err, res) => {
         if (err) {
             console.log(error);
@@ -395,6 +452,7 @@ const retrieveRestaurantInfo = function (latitude, longitude, session, callback)
 };
 
 const searchWebResults = function (question, session) {
+    session.sendTyping();
     let url = 'https://api.cognitive.microsoft.com/bing/v7.0/search?q=' + question.replace(/\s/g, '+');
     request
         .get(url)
@@ -484,13 +542,14 @@ const sendIssueLog = function(session) {
         }
     });
 
+    //send question and answer
+    //<p>Question : ${session.dialogData.question}<br/>
+    //BotAnswer : ${session.dialogData.answer}</p><br/>
     let mailOptions = {
         from: '"Your personal bubble expert" <bubble.bot@outlook.com>', // sender address (who sends)
-        to: 'zluo@gatech.edu, jeffreyzcluo@gmail.com', // list of receivers (who receives) separated by commas
+        to: 'zluo@gatech.edu', // list of receivers (who receives) separated by commas
         subject: 'Issue Log with user', // Subject line
         html: `<body>
-                    <p>Question : ${session.dialogData.question}<br/>
-                    BotAnswer : ${session.dialogData.answer}</p><br/>
                     <h2>Full Conversation Transcript</h2><br/>
                     <p>${conversationLog.substring(24)}</p><br/>
                     <br/>
