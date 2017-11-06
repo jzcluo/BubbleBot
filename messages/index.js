@@ -179,7 +179,10 @@ bot.dialog('hi', [
 
 bot.dialog('searchBubbleTea', [
     (session, args, next) => {
-        if (session.userData.address) {
+        console.log(args.intent.entities);
+        if (args.intent.entities[0]) {
+            getLocationCoordinates(args.intent.entities[0].entity, session, retrieveRestaurantInfo);
+        } else if (session.userData.address) {
             session.beginDialog('searchWithUserInfo');
         } else {
             next();
@@ -193,8 +196,6 @@ bot.dialog('searchBubbleTea', [
         }
     },
     (session, results, next) => {
-        console.log("entering second waterfall");
-        console.log(results.response);
         if (results.response) {
             session.conversationData.address = results.response.split(" ").join("+");
             session.save();
@@ -204,9 +205,7 @@ bot.dialog('searchBubbleTea', [
         }
     },
     (session, results, next) => {
-        console.log(session.conversationData);
         if (results.response) {
-            console.log(results.response);
             session.conversationData.address += '+' + results.response.split(" ").join("+");
             session.save();
             builder.Prompts.text(session, 'What state are you in?');
@@ -248,7 +247,6 @@ bot.dialog('searchWithUserInfo', [
 
 const sendRestaurantAdaptiveCard = (restaurantsInfo, session) => {
     session.sendTyping();
-    console.log(restaurantsInfo.length);
     let restaurantCard = {
         contentType : "application/vnd.microsoft.card.adaptive",
         content : {
@@ -307,7 +305,6 @@ const sendRestaurantAdaptiveCard = (restaurantsInfo, session) => {
     let arrayLength = restaurantsInfo.length;
     restaurantsInfo = restaurantsInfo.slice(0, arrayLength > 8 ? 8 : arrayLength);
 
-    console.log("creating carousel");
     let restaurantsCard = restaurantsInfo.map(restaurant => {
         return new builder.ThumbnailCard(session)
             .title(restaurant.name)
@@ -319,15 +316,12 @@ const sendRestaurantAdaptiveCard = (restaurantsInfo, session) => {
                 builder.CardAction.openUrl(session, restaurant.url, "Learn More")
             ])
     });
-    console.log(restaurantsCard);
+
 
     let carouselOfRestaurants = new builder.Message(session)
                                     .attachmentLayout(builder.AttachmentLayout.carousel)
                                     .attachments(restaurantsCard);
 
-    console.log(typeof carouselOfRestaurants);
-    console.log(typeof restaurantsCard[0]);
-    console.log(restaurantsCard.length);
 
     session.send('Here is a good bubble tea shop around you');
     //add card info to conversation log
@@ -355,10 +349,7 @@ const getLocationCoordinates = function (address, session, callback) {
     console.log("in getlocationcoordinates");
     request.get(url).end((err, res) => {
         let body = res.body;
-        console.log(body.results.length);
         if (body.results.length == 1) {
-            console.log('in body results');
-            console.log(body.results[0]);
             //save this address to user data
             session.userData.address = body.results[0].formatted_address;
 
