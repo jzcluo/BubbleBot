@@ -197,7 +197,6 @@ bot.dialog('searchBubbleTea', [
         console.log(results.response);
         if (results.response) {
             session.conversationData.address = results.response.split(" ").join("+");
-            session.userData.address = results.response;
             session.save();
             builder.Prompts.text(session, 'What city are you in?');
         } else {
@@ -209,7 +208,6 @@ bot.dialog('searchBubbleTea', [
         if (results.response) {
             console.log(results.response);
             session.conversationData.address += '+' + results.response.split(" ").join("+");
-            session.userData.address += " ," + results.response;
             session.save();
             builder.Prompts.text(session, 'What state are you in?');
         } else {
@@ -220,7 +218,6 @@ bot.dialog('searchBubbleTea', [
     (session, results, next) => {
         if (results.response) {
             session.conversationData.address += '+' + results.response.split(" ").join("+");
-            session.userData.address += " ," + results.response;
             session.save();
             getLocationCoordinates(session.conversationData.address, session, retrieveRestaurantInfo);
         } else {
@@ -249,9 +246,9 @@ bot.dialog('searchWithUserInfo', [
 ]);
 
 
-const sendRestaurantAdaptiveCard = (restaurantInfo, session) => {
+const sendRestaurantAdaptiveCard = (restaurantsInfo, session) => {
     session.sendTyping();
-    console.log(restaurantInfo.url);
+    console.log(restaurantsInfo.length);
     let restaurantCard = {
         contentType : "application/vnd.microsoft.card.adaptive",
         content : {
@@ -265,16 +262,16 @@ const sendRestaurantAdaptiveCard = (restaurantInfo, session) => {
                             "items" : [
                                 {
                                     "type" : "TextBlock",
-                                    "text" : restaurantInfo.name,
+                                    "text" : restaurantsInfo[0].name,
                                     "size" : "extraLarge"
                                 },
                                 {
                                     "type" : "TextBlock",
-                                    "text" : restaurantInfo.price + " · rating:" + restaurantInfo.rating
+                                    "text" : restaurantsInfo[0].price + " · rating:" + restaurantsInfo[0].rating
                                 },
                                 {
                                     "type" : "TextBlock",
-                                    "text" : "Location: " + restaurantInfo.location.address1
+                                    "text" : "Location: " + restaurantsInfo[0].location.address1
                                 }
                             ]
                         }
@@ -284,7 +281,7 @@ const sendRestaurantAdaptiveCard = (restaurantInfo, session) => {
                             "items" : [
                                 {
                                     "type" : "Image",
-                                    "url" : restaurantInfo.image_url
+                                    "url" : restaurantsInfo[0].image_url
                                 }
                             ]
 
@@ -296,18 +293,51 @@ const sendRestaurantAdaptiveCard = (restaurantInfo, session) => {
                 {
                     "type" : "Action.OpenUrl",
                     "title" : "More Info",
-                    "url" : restaurantInfo.url
+                    "url" : restaurantsInfo[0].url
                 }
             ]
         }
     }
 
-    console.log(restaurantCard);
-    let message = new builder.Message(session).addAttachment(restaurantCard);
-    //add card info to conversation log
-    conversationLog += `Card with message about restaurant "${restaurantInfo.name}"`;
+
+
+    let recommendedRestaurant = new builder.Message(session).addAttachment(restaurantCard);
+
+    //cut down arraysize to 10 if necessary
+    let arrayLength = restaurantsInfo.length;
+    restaurantsInfo = restaurantsInfo.slice(0, arrayLength > 8 ? 8 : arrayLength);
+
+    console.log("creating carousel");
+    let restaurantsCard = restaurantsInfo.map(restaurant => {
+        return new builder.ThumbnailCard(session)
+            .title(restaurant.name)
+            .subtitle(restaurantsInfo[0].price + " · rating:" + restaurantsInfo[0].rating + "\n" + "Location: " + restaurantsInfo[0].location.address1)
+            .images([
+                builder.CardImage.create(session, restaurant.image_url)
+            ])
+            .buttons([
+                builder.CardAction.openUrl(session, restaurant.url, "Learn More")
+            ])
+    });
+    console.log(restaurantsCard);
+
+    let carouselOfRestaurants = new builder.Message(session)
+                                    .attachmentLayout(builder.AttachmentLayout.carousel)
+                                    .attachments(restaurantsCard);
+
+    console.log(typeof carouselOfRestaurants);
+    console.log(typeof restaurantsCard[0]);
+    console.log(restaurantsCard.length);
+
     session.send('Here is a good bubble tea shop around you');
-    session.endDialog(message);
+    //add card info to conversation log
+    conversationLog += `Card with message about tea shop "${restaurantsInfo[0].name}"`;
+    session.send(recommendedRestaurant);
+    session.send("Or you could browse the other ones here");
+    //add card info to conversation log
+    conversationLog += `Carousel with cards about other tea shops`;
+
+    session.endDialog(carouselOfRestaurants);
 };
 
 const getLocationCoordinates = function (address, session, callback) {
@@ -329,6 +359,9 @@ const getLocationCoordinates = function (address, session, callback) {
         if (body.results.length == 1) {
             console.log('in body results');
             console.log(body.results[0]);
+            //save this address to user data
+            session.userData.address = body.results[0].formatted_address;
+
             latitude = body.results[0].geometry.location.lat;
             longitude = body.results[0].geometry.location.lng;
 
@@ -362,7 +395,7 @@ const retrieveRestaurantInfo = function (latitude, longitude, session, callback)
                 for (let i = 0; i < length; i++) {
                     resultsArray[i] = body.businesses[i];
                 }
-                callback(resultsArray[0], session);
+                callback(resultsArray, session);
             } else {
                 session.endDialog('Sorry I could not find a open shop around you');
             }
