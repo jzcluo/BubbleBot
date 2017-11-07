@@ -57,6 +57,17 @@ bot.use({
     }
 });
 
+//called when a user is added to the conversationUpdate
+//https://stackoverflow.com/questions/42353337/is-it-possible-to-detect-when-a-user-opens-the-chat-window-on-facebook/42353957
+bot.on('conversationUpdate', (message) => {
+    if (message.membersAdded && message.membersAdded[0].name != "Bot") {
+        let reply = new builder.Message()
+                .address(message.address)
+                .text(`Hi there, try typing "hi" :)`);
+        bot.send(reply);
+    }
+});
+
 
 bot.dialog('qnadialog',[
     (session, args, next) => {
