@@ -185,7 +185,7 @@ bot.dialog('makeBubbleTea', [
                 .title("300g water")
                 .subtitle("300g")
                 .images([
-                    builder.CardImage.create(session, "https://cdn.pixabay.com/photo/2017/05/08/20/41/water-2296444_1280.jpg")
+                    builder.CardImage.create(session, "https://static.pexels.com/photos/16490/water-glass-theme-water-16490.jpg")
                 ]),
             new builder.HeroCard(session)
                 .title("10g black tea leaves")
