@@ -247,6 +247,7 @@ bot.dialog('searchBubbleTea', [
         }
     },
     (session, results, next) => {
+        console.log("second waterfall in search buble tea");
         console.log(results);
         if (!results.response) {
             builder.Prompts.text(session, 'What is your address? (in the format{street, city, state} or a place name)');
@@ -287,6 +288,14 @@ bot.dialog('searchWithUserInfo', [
 
 
 const sendRestaurantAdaptiveCard = (restaurantsInfo, session) => {
+    if (restaurantsInfo.length == 0) {
+        //calling endDialog here does not actually do much because this is not a dialog that is added to stack
+        // this ends the original calling dialog
+        session.endDialog("Sorry I could not find a open tea shop around you at this time :(");
+        //need to return because doing session.endDialog only deals with the bot behavior
+        //but not how the js function behaves
+        return;
+    }
     session.sendTyping();
     let restaurantCard = {
         contentType : "application/vnd.microsoft.card.adaptive",
@@ -342,37 +351,42 @@ const sendRestaurantAdaptiveCard = (restaurantsInfo, session) => {
 
     let recommendedRestaurant = new builder.Message(session).addAttachment(restaurantCard);
 
-    //cut down arraysize to 10 if necessary
-    let arrayLength = restaurantsInfo.length;
-    restaurantsInfo = restaurantsInfo.slice(0, arrayLength > 8 ? 8 : arrayLength);
-
-    let restaurantsCard = restaurantsInfo.map(restaurant => {
-        return new builder.ThumbnailCard(session)
-            .title(restaurant.name)
-            .subtitle(restaurantsInfo[0].price + " · rating:" + restaurantsInfo[0].rating + "\n" + "Location: " + restaurantsInfo[0].location.address1)
-            .images([
-                builder.CardImage.create(session, restaurant.image_url)
-            ])
-            .buttons([
-                builder.CardAction.openUrl(session, restaurant.url, "Learn More")
-            ])
-    });
-
-
-    let carouselOfRestaurants = new builder.Message(session)
-                                    .attachmentLayout(builder.AttachmentLayout.carousel)
-                                    .attachments(restaurantsCard);
-
-
     session.send('Here is a good bubble tea shop around you');
     //add card info to conversation log
     conversationLog += `Bot : Card with message about tea shop "${restaurantsInfo[0].name}"<br/>`;
     session.send(recommendedRestaurant);
-    session.send("Or you could browse the other ones here");
-    //add card info to conversation log
-    conversationLog += `Bot : Carousel with cards about other tea shops<br/>`;
 
-    session.endDialog(carouselOfRestaurants);
+    //only sends carousel if there is more than one shop open
+    if (restaurantsInfo.length > 1) {
+    //cut down arraysize to 10 if necessary
+        let arrayLength = restaurantsInfo.length;
+        restaurantsInfo = restaurantsInfo.slice(0, arrayLength > 8 ? 8 : arrayLength);
+
+        let restaurantsCard = restaurantsInfo.map(restaurant => {
+            return new builder.ThumbnailCard(session)
+                .title(restaurant.name)
+                .subtitle(restaurant.price + " · rating:" + restaurant.rating + "\n" + "Location: " + restaurant.location.address1)
+                .images([
+                    builder.CardImage.create(session, restaurant.image_url)
+                ])
+                .buttons([
+                    builder.CardAction.openUrl(session, restaurant.url, "Learn More")
+                ])
+        });
+
+
+        let carouselOfRestaurants = new builder.Message(session)
+                                        .attachmentLayout(builder.AttachmentLayout.carousel)
+                                        .attachments(restaurantsCard);
+
+        session.send("Or you could browse the other ones here");
+        //add card info to conversation log
+        conversationLog += `Bot : Carousel with cards about other tea shops<br/>`;
+
+        session.send(carouselOfRestaurants);
+    }
+    //call endDialog to stop original waterfall
+    session.endDialog();
 };
 
 const getLocationCoordinates = function (address, session, callback) {
