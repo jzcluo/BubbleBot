@@ -153,8 +153,6 @@ bot.dialog('hi', [
                     break;
                 case 'Cook' :
                     session.beginDialog('makeBubbleTea');
-                    //session.endDialog('coming soon...');
-                    //session.beginDialog('hi');
                     break;
                 case 'Clear' :
                     //set empty and call save
