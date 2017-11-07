@@ -177,31 +177,26 @@ bot.dialog('makeBubbleTea', [
         let ingredientsCards = [
             new builder.HeroCard(session)
                 .title("30g black tapioca pearl")
-                .subtitle("30g")
                 .images([
                     builder.CardImage.create(session, "https://c1.staticflickr.com/1/252/551114308_676fedd296_b.jpg")
                 ]),
             new builder.HeroCard(session)
                 .title("300g water")
-                .subtitle("300g")
                 .images([
                     builder.CardImage.create(session, "https://static.pexels.com/photos/16490/water-glass-theme-water-16490.jpg")
                 ]),
             new builder.HeroCard(session)
                 .title("10g black tea leaves")
-                .subtitle("10g")
                 .images([
                     builder.CardImage.create(session, "https://upload.wikimedia.org/wikipedia/commons/0/0d/Osmanthusblacktealeaves.jpg")
                 ]),
             new builder.HeroCard(session)
                 .title("300g soy milk")
-                .subtitle("300g")
                 .images([
                     builder.CardImage.create(session, "https://cdn.davidwolfe.com/wp-content/uploads/2016/06/soy-milk-e1464882996526.jpg")
                 ]),
             new builder.HeroCard(session)
                 .title("30 - 60g maple syrup")
-                .subtitle("30 - 60g")
                 .images([
                     builder.CardImage.create(session, "https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcTtBFXrvTn-ddkMevXrgc7NbZfZadNaNoqEtu5RjWnXDmb09IKV4w")
                 ])
