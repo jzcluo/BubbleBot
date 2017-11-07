@@ -236,17 +236,18 @@ bot.dialog('getFeedback', [
 
 bot.dialog('searchBubbleTea', [
     (session, args, next) => {
+        console.log("args");
+        console.log(args);
         if (args && args.intent.entities[0]) {
             getLocationCoordinates(args.intent.entities[0].entity, session, retrieveRestaurantInfo);
-            session.endDialog();
         } else if (session.userData.address) {
             session.beginDialog('searchWithUserInfo');
-            session.endDialog();
         } else {
             next();
         }
     },
     (session, results, next) => {
+        console.log(results);
         if (!results.response) {
             builder.Prompts.text(session, 'What is your address? (in the format{street, city, state} or a place name)');
         } else {
@@ -255,10 +256,9 @@ bot.dialog('searchBubbleTea', [
     },
     (session, results, next) => {
         if (results.response) {
-            console.log(results.response.split(" ").join("+").replace(",", ""));
             getLocationCoordinates(results.response.split(" ").join("+").replace(",", ""), session, retrieveRestaurantInfo);
         } else {
-            session.endDialog('OK Bye');
+            session.endDialogWithResult('OK Bye');
         }
     }
 
@@ -268,16 +268,18 @@ bot.dialog('searchBubbleTea', [
 
 bot.dialog('searchWithUserInfo', [
     (session, args, next) => {
+        console.log(args);
         builder.Prompts.choice(session, `Your address is ${session.userData.address}. Use this address?`, ["YES", "NO"], {listStyle : builder.ListStyle.button});
     },
-    (session, results) => {
-        console.log(results.response);
+    (session, results, next) => {
         if (results.response) {
             if (results.response.entity == 'YES') {
                 //this function will call enddialog
                 getLocationCoordinates(session.userData.address, session, retrieveRestaurantInfo);
             } else if (results.response.entity == 'NO') {
-                session.endDialog();
+                //If i use session.endDialog. the results of the next water fall will contain a response : true
+                //this hack overrides that and make the response undefined. Therefore waterfall could continue normally
+                session.endDialogWithResult({});
             }
         }
     }
