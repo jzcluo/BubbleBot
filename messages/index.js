@@ -152,8 +152,9 @@ bot.dialog('hi', [
                     //session.endDialog('Please type any question you have about bubble tea');
                     break;
                 case 'Cook' :
-                    session.endDialog('coming soon...');
-                    session.beginDialog('hi');
+                    session.beginDialog('makeBubbleTea');
+                    //session.endDialog('coming soon...');
+                    //session.beginDialog('hi');
                     break;
                 case 'Clear' :
                     //set empty and call save
@@ -171,6 +172,74 @@ bot.dialog('hi', [
     matches : 'hi'
 });
 
+bot.dialog('makeBubbleTea', [
+    (session, args, next) => {
+
+        session.send("You will need to following ingredients : ");
+        let ingredientsCards = [
+            new builder.HeroCard(session)
+                .title("30g black tapioca pearl")
+                .subtitle("30g")
+                .images([
+                    builder.CardImage.create(session, "https://c1.staticflickr.com/1/252/551114308_676fedd296_b.jpg")
+                ]),
+            new builder.HeroCard(session)
+                .title("300g water")
+                .subtitle("300g")
+                .images([
+                    builder.CardImage.create(session, "https://cdn.pixabay.com/photo/2017/05/08/20/41/water-2296444_1280.jpg")
+                ]),
+            new builder.HeroCard(session)
+                .title("10g black tea leaves")
+                .subtitle("10g")
+                .images([
+                    builder.CardImage.create(session, "https://upload.wikimedia.org/wikipedia/commons/0/0d/Osmanthusblacktealeaves.jpg")
+                ]),
+            new builder.HeroCard(session)
+                .title("300g soy milk")
+                .subtitle("300g")
+                .images([
+                    builder.CardImage.create(session, "https://cdn.davidwolfe.com/wp-content/uploads/2016/06/soy-milk-e1464882996526.jpg")
+                ]),
+            new builder.HeroCard(session)
+                .title("30 - 60g maple syrup")
+                .subtitle("30 - 60g")
+                .images([
+                    builder.CardImage.create(session, "https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcTtBFXrvTn-ddkMevXrgc7NbZfZadNaNoqEtu5RjWnXDmb09IKV4w")
+                ])
+        ];
+        let carouselOfIngredients = new builder.Message(session)
+                                        .attachmentLayout(builder.AttachmentLayout.carousel)
+                                        .attachments(ingredientsCards);
+
+        session.send(carouselOfIngredients);
+        builder.Prompts.choice(session, "Do you have all of the above ingredients?", ["YES", "NO"], {listStyle : builder.ListStyle.button});
+    },
+    (session, results, next) => {
+        if (results.response) {
+            if (results.response.entity == 'YES') {
+                session.send("Awesome! Let's get started! It will be a 5-minute video.");
+                builder.Prompts.choice(session, " ", ["Continue"], {listStyle : builder.ListStyle.button});
+            } else if (results.response.entity == 'NO') {
+                session.endDialog("Gather them and come back to learn how to make it!")
+                session.beginDialog('hi');
+            }
+        }
+    },
+    (session, results, next) => {
+        //sample for videoCard https://github.com/Microsoft/BotBuilder-Samples/tree/master/Node/cards-RichCards
+        let videoCard =  new builder.VideoCard(session)
+                            .media([{url : "https://www.youtube.com/watch?v=xebewT6lh2k"}])
+                            .autostart(true);
+
+
+        let message = new builder.Message(session).addAttachment(videoCard);
+
+        session.endDialog(message);
+    }
+]).triggerAction({
+    matches : 'make'
+});
 
 bot.dialog('getFeedback', [
     //instead of asking the user step by step if it was helpful. Use sentiment analysis
@@ -206,30 +275,6 @@ bot.dialog('getFeedback', [
                 }
             });
     }
-    /*
-    (session, args, next) => {
-        builder.Prompts.choice(session, "Did that help you?", ["YES", "NO"], {listStyle : builder.ListStyle.button});
-    },
-    (session, results, next) => {
-        if (results.response) {
-            if (results.response.entity == 'YES') {
-                builder.Prompts.choice(session, "Is there anything else I could help you with today", ["YES", "NO"], {listStyle : builder.ListStyle.button});
-            } else if (results.response.entity == 'NO') {
-                sendIssueLog(session);
-                session.endConversation("Sorry about that, I will get better next time.");
-            }
-        }
-    },
-    (session, results) => {
-        if (results.response) {
-            if (results.response.entity == 'YES') {
-                session.beginDialog('hi');
-            } else if (results.response.entity == 'NO') {
-                session.beginDialog('bye');
-            }
-        }
-    }
-    */
 ]).triggerAction({
     matches : 'bye'
 });
