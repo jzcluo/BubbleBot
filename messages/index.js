@@ -104,12 +104,15 @@ bot.dialog('qnadialog',[
     },
     (session, results) => {
         if (results.response) {
-            if (results.response.entity == 'YES') {
-                updateKnowledgeBase(session.dialogData.question, session.dialogData.answer);
-            } else if (results.response.entity == 'NO') {
+            if (results.response.index == 3) {
                 //send a email report
                 session.send('Sorry about that, I will get back to you when I have the answer ready');
                 sendIssueLog(session);
+            } else {
+                //One of them answered the question
+                //update knowledge base
+                updateKnowledgeBase(session.dialogData.question, session.dialogData.answer[results.respones.index]);
+                session.endDialog("Thanks for the feedback. I hope to assist you again soon!")
             }
         }
     }
@@ -408,20 +411,60 @@ const sendRestaurantAdaptiveCard = (restaurantsInfo, session) => {
 
     //only sends carousel if there is more than one shop open
     if (restaurantsInfo.length > 1) {
-    //cut down arraysize to 10 if necessary
+    //cut down arraysize to 8 if necessary
         let arrayLength = restaurantsInfo.length;
-        restaurantsInfo = restaurantsInfo.slice(0, arrayLength > 8 ? 8 : arrayLength);
+        restaurantsInfo = restaurantsInfo.slice(1, arrayLength > 8 ? 8 : arrayLength);
 
         let restaurantsCard = restaurantsInfo.map(restaurant => {
-            return new builder.ThumbnailCard(session)
-                .title(restaurant.name)
-                .subtitle(restaurant.price + " · rating:" + restaurant.rating + "\n" + "Location: " + restaurant.location.address1)
-                .images([
-                    builder.CardImage.create(session, restaurant.image_url)
-                ])
-                .buttons([
-                    builder.CardAction.openUrl(session, restaurant.url, "Learn More")
-                ])
+            return {
+                contentType : "application/vnd.microsoft.card.adaptive",
+                content : {
+                    type : "AdaptiveCard",
+                    body : [
+                        {
+                            "type" : "ColumnSet",
+                            "columns" : [
+                                {
+                                    "type" : "Column",
+                                    "items" : [
+                                        {
+                                            "type" : "TextBlock",
+                                            "text" : restaurant.name,
+                                            "size" : "extraLarge"
+                                        },
+                                        {
+                                            "type" : "TextBlock",
+                                            "text" : restaurant.price + " · rating:" + restaurant.rating
+                                        },
+                                        {
+                                            "type" : "TextBlock",
+                                            "text" : "Location: " + restaurant.location.address1
+                                        }
+                                    ]
+                                }
+                                ,
+                                {
+                                    "type" : "Column",
+                                    "items" : [
+                                        {
+                                            "type" : "Image",
+                                            "url" : restaurant.image_url
+                                        }
+                                    ]
+
+                                }
+                            ]
+                        }
+                    ],
+                    actions : [
+                        {
+                            "type" : "Action.OpenUrl",
+                            "title" : "More Info",
+                            "url" : restaurant.url
+                        }
+                    ]
+                }
+            }
         });
 
 
@@ -509,35 +552,49 @@ const searchWebResults = function (question, session) {
             let webPages = res.body.webPages.value;
             console.log(webPages[0].snippet);
 
-            let answerCard = {
-                contentType : "application/vnd.microsoft.card.adaptive",
-                content : {
-                    type : "AdaptiveCard",
-                    body : [
-                        {
-                            "type" : "TextBlock",
-                            "text" : webPages[0].snippet,
-                            "wrap" : true
-                        }
-                    ],
-                    actions : [
-                        {
-                            "type" : "Action.OpenUrl",
-                            "title" : "More Info",
-                            "url" : webPages[0].url
-                        }
-                    ]
+
+            let answerCards = [0, 1, 2].map(index => {
+                return {
+                    contentType : "application/vnd.microsoft.card.adaptive",
+                    content : {
+                        type : "AdaptiveCard",
+                        body : [
+                            {
+                                "type" : "TextBlock",
+                                "text" : webPages[index].name,
+                                "weight" : "bolder",
+                                "wrap" : true
+                            },
+                            {
+                                "type" : "TextBlock",
+                                "text" : webPages[index].snippet,
+                                "wrap" : true
+                            }
+                        ],
+                        actions : [
+                            {
+                                "type" : "Action.OpenUrl",
+                                "title" : "More Info",
+                                "url" : webPages[index].url
+                            }
+                        ]
+                    }
                 }
-            }
-            let message = new builder.Message(session).addAttachment(answerCard);
+            });
+            let message = new builder.Message(session)
+                                .attachmentLayout(builder.AttachmentLayout.carousel)
+                                .attachments(answerCards)
             //updateKnowledgeBase(question, webPages[0].snippet.split("\.")[0]);
             session.dialogData.question = question;
-            session.dialogData.answer = webPages[0].snippet.split("\.")[0];
+            session.dialogData.answer = [];
+            session.dialogData.answer[0] = webPages[0].snippet.split("\.")[0];
+            session.dialogData.answer[1] = webPages[1].snippet.split("\.")[0];
+            session.dialogData.answer[2] = webPages[2].snippet.split("\.")[0];
             session.save();
             session.send(message);
             //add message to conversatino log
             conversationLog += `Bot : Card with answer : ${webPages[0].snippet}<br/>`;
-            builder.Prompts.choice(session, "The above answer was pulled from the internet. Did that answer your question?", ["YES", "NO"], {listStyle : builder.ListStyle.button});
+            builder.Prompts.choice(session, "The above answers was pulled from the internet. Which one best answered your question?", [webPages[0].name, webPages[1].name, webPages[2].name, "NO, it did not answer my question!"], {listStyle : builder.ListStyle.button});
         });
 };
 
