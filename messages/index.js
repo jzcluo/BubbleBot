@@ -33,6 +33,11 @@ const bot = new builder.UniversalBot(connector, [
         session.beginDialog('hi');
     }
 ]);
+
+const recognizer = new builder.LuisRecognizer(process.env.LUIS_MODEL_URL);
+bot.recognizer(recognizer);
+
+
 //whether to persist conversationdata
 //bot.set(`persistConversationData`, false);
 
@@ -68,10 +73,53 @@ bot.on('conversationUpdate', (message) => {
 
 bot.dialog('welcome', [
     (session, args, next) => {
-        session.endDialog("Hello there");
+        //see if last user interaction
+        if (session.userData.lastUserInteraction) {
+            if (session.userData.lastUserInteraction == "MakeBubbleTea") {
+                builder.Prompts.text(session, "Did you enjoy the bubble tea you made? :)");
+            } else if (session.userData.lastUserInteraction == "SearchTeaShop") {
+                builder.Prompts.text(session, "Did you like the bubble tea shop I suggested for you?");
+            }
+            //set it to undefined
+            session.userData.lastUserInteraction = undefined;
+        } else {
+            session.endDialog();
+            session.beginDialog('hi');
+        }
     },
     (session, results, next) => {
+        let url = "https://eastus.api.cognitive.microsoft.com/text/analytics/v2.0/sentiment";
+        let bodyJSON = {
+            "documents" : [
+                {
+                    "language" : "en",
+                    "id" : session.message.user.name + session.message.text + session.message.user.id,
+                    "text" : session.message.text
+                }
+            ]
+        };
 
+        request
+            .post(url)
+            .set('Ocp-Apim-Subscription-Key', process.env.SENTIMENT_ANALYSIS_KEY)
+            .send(bodyJSON)
+            .end((err, res) => {
+                if (err) {
+                    console.log(err);
+                    session.endDialog('Sorry something went wrong');
+                } else {
+                    console.log(res.body);
+                    let score = res.body.documents[0].score;
+                    if (score >= 0.5) {
+                        session.send("That's awesome! I am glad I was helpful.");
+                    } else {
+                        sendIssueLog(session);
+                        session.send("Sorry about that, I will get better next time.");
+                    }
+                    session.endDialog("Let's see how I can help you today~");
+                    session.beginDialog('hi');
+                }
+            });
     }
 ]);
 
@@ -245,6 +293,8 @@ bot.dialog('makeBubbleTea', [
 
 
         let message = new builder.Message(session).addAttachment(videoCard);
+
+        session.userData.lastUserInteraction = "MakeBubbleTea";
 
         session.endDialog(message);
     }
@@ -482,6 +532,7 @@ const sendRestaurantAdaptiveCard = (restaurantsInfo, session) => {
 
         session.send(carouselOfRestaurants);
     }
+    session.userData.lastUserInteraction = "SearchTeaShop";
     //call endDialog to stop original waterfall
     session.endDialog();
 };
