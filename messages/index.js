@@ -60,14 +60,20 @@ bot.use({
 //called when a user is added to the conversationUpdate
 //https://stackoverflow.com/questions/42353337/is-it-possible-to-detect-when-a-user-opens-the-chat-window-on-facebook/42353957
 bot.on('conversationUpdate', (message) => {
-    if (message.membersAdded && message.membersAdded[0].name != "Bot") {
-        let reply = new builder.Message()
-                .address(message.address)
-                .text(`Hi there, try typing "hi" :)`);
-        bot.send(reply);
+    console.log(message.membersAdded);
+    if (message.membersAdded && message.membersAdded[0].id === message.address.bot.id) {
+        bot.beginDialog(message.address, 'welcome');
     }
 });
 
+bot.dialog('welcome', [
+    (session, args, next) => {
+        session.endDialog("Hello there");
+    },
+    (session, results, next) => {
+
+    }
+]);
 
 bot.dialog('qnadialog',[
     (session, args, next) => {
@@ -120,8 +126,6 @@ bot.dialog('qnadialog',[
     matches : 'QnAIntent'
 });
 
-const recognizer = new builder.LuisRecognizer(process.env.LUIS_MODEL_URL);
-bot.recognizer(recognizer);
 
 bot.dialog('hi', [
     (session, args, next) => {
@@ -404,7 +408,7 @@ const sendRestaurantAdaptiveCard = (restaurantsInfo, session) => {
 
     let recommendedRestaurant = new builder.Message(session).addAttachment(restaurantCard);
 
-    session.send('Here is a good bubble tea shop around you');
+    session.send('Here is a good bubble tea shop around you that is currently open');
     //add card info to conversation log
     conversationLog += `Bot : Card with message about tea shop "${restaurantsInfo[0].name}"<br/>`;
     session.send(recommendedRestaurant);
@@ -593,7 +597,7 @@ const searchWebResults = function (question, session) {
             session.save();
             session.send(message);
             //add message to conversatino log
-            conversationLog += `Bot : Card with answer : ${webPages[0].snippet}<br/>`;
+            conversationLog += `Bot : Cards with answers : ${webPages[0].snippet};<br/>${webPages[1].snippet};<br/>${webPages[2].snippet}<br/>`;
             builder.Prompts.choice(session, "The above answers was pulled from the internet. Which one best answered your question?", [webPages[0].name, webPages[1].name, webPages[2].name, "NO, it did not answer my question!"], {listStyle : builder.ListStyle.button});
         });
 };
@@ -673,7 +677,7 @@ const sendIssueLog = function(session) {
                                         console.log(response);
                                     }
                                 };
-                                let url = ${session.message.address.serviceUrl}/v3/conversations;
+                                let url = ${session.message.address.serviceUrl}v3/conversations;
                                 xhr.setRequestHeader('Content-Type', 'application/json');
                                 xhr.setRequestHeader('Authorization', ${process.env.BEARER_ACCESS_TOKEN});
                                 xhr.open("POST", url, true);
